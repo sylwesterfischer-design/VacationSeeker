@@ -7,13 +7,15 @@ Albo: run_raport_location_gui.bat
 from __future__ import annotations
 
 import threading
+import uuid
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 
 from .config import Settings
 from .main import report_filename_for_destination
 from .pipeline import run_once
+from .run_context import RunContext
 
 
 ACCENT = "#ff6b00"
@@ -140,7 +142,51 @@ class LocationReportApp(tk.Tk):
             pady=12,
             cursor="hand2",
         )
-        self.btn_run.pack(fill=tk.X, padx=16, pady=(8, 16))
+        self.btn_run.pack(fill=tk.X, padx=16, pady=(8, 8))
+
+        prog_frame = tk.Frame(outer, bg=BG)
+        prog_frame.pack(fill=tk.X, padx=16, pady=(0, 16))
+        self.lbl_progress = tk.Label(
+            prog_frame,
+            text="",
+            bg=BG,
+            fg="#333",
+            font=("Consolas", 9),
+            anchor="w",
+            justify=tk.LEFT,
+        )
+        self.lbl_progress.pack(fill=tk.X, anchor="w")
+        self.progress_bar = ttk.Progressbar(
+            prog_frame,
+            mode="determinate",
+            length=480,
+            maximum=100,
+        )
+        self.progress_bar.pack(fill=tk.X, pady=(4, 0))
+
+    def _schedule_progress(self, phase: str, current: int, total: int) -> None:
+        """Wywołanie z wątku roboczego — aktualizacja UI w głównym wątku."""
+
+        def update_ui() -> None:
+            if total > 0:
+                self.progress_bar.config(mode="determinate", maximum=max(1, total), value=min(current, total))
+                pct = int(100 * min(current, total) / max(1, total))
+                self.lbl_progress.config(text=f"{phase}  {current}/{total}  ({pct}%)")
+            else:
+                self.progress_bar.config(mode="indeterminate")
+                self.progress_bar.start(12)
+                self.lbl_progress.config(text=phase)
+            self.update_idletasks()
+
+        self.after(0, update_ui)
+
+    def _reset_progress_ui(self) -> None:
+        try:
+            self.progress_bar.stop()
+        except tk.TclError:
+            pass
+        self.progress_bar.config(mode="determinate", maximum=100, value=0)
+        self.lbl_progress.config(text="")
 
     def _pick_folder(self) -> None:
         d = filedialog.askdirectory(initialdir=self.var_target.get() or ".")

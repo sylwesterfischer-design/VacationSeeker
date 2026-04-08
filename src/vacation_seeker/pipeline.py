@@ -111,16 +111,19 @@ def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedR
         raw_offers = filter_available_offers(
             raw_offers,
             timeout_seconds=settings.validation_timeout_seconds,
-            show_progress=ctx is not None and not ctx.no_progress,
+            show_progress=ctx is not None and not ctx.no_progress and ctx.progress_callback is None,
+            progress_callback=ctx.progress_callback if ctx else None,
         )
         after_validation_counts = _count_by_source(raw_offers)
     summary.after_validation = len(raw_offers)
     _print_source_telemetry(collected_counts, before_validation_counts, after_validation_counts, settings.validate_offer_links)
 
+    _pipeline_progress(ctx, "Przetwarzanie raportu", 1, 4)
     offers = [normalize(r) for r in raw_offers]
     offers = apply_scoring(offers)
     summary.offers_normalized = len(offers)
 
+    _pipeline_progress(ctx, "Przetwarzanie raportu", 2, 4)
     if not (ctx and ctx.dry_run):
         save_offers(conn, offers)
         summary.db_saved = True
@@ -129,6 +132,7 @@ def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedR
     summary.report_near_count = len(report_near)
     ranked = rank(report_near)
 
+    _pipeline_progress(ctx, "Przetwarzanie raportu", 3, 4)
     alerts = build_price_drop_alerts(offers, previous_prices)
     if not (ctx and ctx.dry_run):
         send_webhook_alerts(settings.webhook_url, alerts)
@@ -174,6 +178,7 @@ def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedR
         summary.html_written = True
         maybe_send_top_tier_email(conn, settings, report_near)
         summary.watch_emails_sent = _run_watches(conn, settings, offers)
+    _pipeline_progress(ctx, "Przetwarzanie raportu", 4, 4)
     conn.close()
     if ctx and ctx.dry_run:
         sys.stdout.flush()
