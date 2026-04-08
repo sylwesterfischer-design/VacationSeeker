@@ -1,6 +1,7 @@
 """
-GUI do raportu lokalizacyjnego (Kierunek, zakresy dat, osoby) — styl uproszczony jak wyszukiwarka podróży.
+GUI do raportu lokalizacyjnego: lokalizacja (tekst), zakres dat wylotu i powrotu, osoby.
 Uruchomienie: py -3 -m src.vacation_seeker.gui_location
+Albo: run_raport_location_gui.bat
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ class LocationReportApp(tk.Tk):
         super().__init__()
         self.title("VacationSeeker — raport lokalizacyjny")
         self.configure(bg=BG)
-        self.minsize(520, 560)
+        self.minsize(520, 620)
         self._build()
 
     def _build(self) -> None:
@@ -49,22 +50,41 @@ class LocationReportApp(tk.Tk):
         e_dest = tk.Entry(card1, textvariable=self.var_destination, font=("Segoe UI", 12), relief=tk.FLAT, highlightthickness=1, highlightbackground="#ccc")
         e_dest.pack(fill=tk.X, padx=12, pady=(4, 12))
 
-        # Jedna data wylotu + jedna data powrotu (filtr w pipeline: from=to)
+        # Zakres wylotu + zakres powrotu (Settings.report_*_from / *_to)
         card2 = tk.Frame(outer, bg=CARD, highlightbackground="#ddd", highlightthickness=1)
         card2.pack(fill=tk.X, **pad)
-        tk.Label(card2, text="Terminy (YYYY-MM-DD)", font=("Segoe UI", 10, "bold"), bg=CARD).pack(anchor="w", padx=12, pady=(10, 4))
+        tk.Label(
+            card2,
+            text="Terminy — zakresy (YYYY-MM-DD)",
+            font=("Segoe UI", 10, "bold"),
+            bg=CARD,
+        ).pack(anchor="w", padx=12, pady=(10, 4))
 
-        row_d = tk.Frame(card2, bg=CARD)
-        row_d.pack(fill=tk.X, padx=12, pady=4)
-        tk.Label(row_d, text="Data wylotu", bg=CARD, width=14, anchor="w").pack(side=tk.LEFT)
-        self.var_dep = tk.StringVar(value="2026-06-27")
-        tk.Entry(row_d, textvariable=self.var_dep, width=16, font=("Segoe UI", 11)).pack(side=tk.LEFT, padx=4)
+        row_df = tk.Frame(card2, bg=CARD)
+        row_df.pack(fill=tk.X, padx=12, pady=4)
+        tk.Label(row_df, text="Wylot od", bg=CARD, width=14, anchor="w").pack(side=tk.LEFT)
+        self.var_dep_from = tk.StringVar(value="2026-06-20")
+        tk.Entry(row_df, textvariable=self.var_dep_from, width=14, font=("Segoe UI", 11)).pack(side=tk.LEFT, padx=4)
+        tk.Label(row_df, text="do", bg=CARD).pack(side=tk.LEFT, padx=4)
+        self.var_dep_to = tk.StringVar(value="2026-06-30")
+        tk.Entry(row_df, textvariable=self.var_dep_to, width=14, font=("Segoe UI", 11)).pack(side=tk.LEFT, padx=4)
 
-        row_r = tk.Frame(card2, bg=CARD)
-        row_r.pack(fill=tk.X, padx=12, pady=(0, 12))
-        tk.Label(row_r, text="Data powrotu", bg=CARD, width=14, anchor="w").pack(side=tk.LEFT)
-        self.var_ret = tk.StringVar(value="2026-07-05")
-        tk.Entry(row_r, textvariable=self.var_ret, width=16, font=("Segoe UI", 11)).pack(side=tk.LEFT, padx=4)
+        row_rf = tk.Frame(card2, bg=CARD)
+        row_rf.pack(fill=tk.X, padx=12, pady=4)
+        tk.Label(row_rf, text="Powrót od", bg=CARD, width=14, anchor="w").pack(side=tk.LEFT)
+        self.var_ret_from = tk.StringVar(value="2026-07-01")
+        tk.Entry(row_rf, textvariable=self.var_ret_from, width=14, font=("Segoe UI", 11)).pack(side=tk.LEFT, padx=4)
+        tk.Label(row_rf, text="do", bg=CARD).pack(side=tk.LEFT, padx=4)
+        self.var_ret_to = tk.StringVar(value="2026-07-10")
+        tk.Entry(row_rf, textvariable=self.var_ret_to, width=14, font=("Segoe UI", 11)).pack(side=tk.LEFT, padx=4)
+
+        tk.Label(
+            card2,
+            text="Oferty muszą mieścić się w obu zakresach (wylot i powrót).",
+            font=("Segoe UI", 8),
+            fg="#666",
+            bg=CARD,
+        ).pack(anchor="w", padx=12, pady=(0, 12))
 
         # Osoby
         card3 = tk.Frame(outer, bg=CARD, highlightbackground="#ddd", highlightthickness=1)
@@ -155,11 +175,31 @@ class LocationReportApp(tk.Tk):
 
     def _validate_dates(self, *fields: tuple[str, tk.StringVar]) -> str | None:
         import re
+
         pat = re.compile(r"^\d{4}-\d{2}-\d{2}$")
         for label, var in fields:
             v = var.get().strip()
             if not pat.match(v):
                 return f"Niepoprawna data ({label}): użyj YYYY-MM-DD."
+        return None
+
+    def _parse_iso(self, s: str):
+        from datetime import datetime
+
+        return datetime.strptime(s.strip(), "%Y-%m-%d").date()
+
+    def _validate_ranges(self) -> str | None:
+        try:
+            df = self._parse_iso(self.var_dep_from.get())
+            dt = self._parse_iso(self.var_dep_to.get())
+            rf = self._parse_iso(self.var_ret_from.get())
+            rt = self._parse_iso(self.var_ret_to.get())
+        except ValueError:
+            return "Niepoprawny format daty (oczekiwano YYYY-MM-DD)."
+        if df > dt:
+            return "Zakres wylotu: data „od” nie może być późniejsza niż „do”."
+        if rf > rt:
+            return "Zakres powrotu: data „od” nie może być późniejsza niż „do”."
         return None
 
     def _on_run(self) -> None:
@@ -168,9 +208,15 @@ class LocationReportApp(tk.Tk):
             messagebox.showwarning("VacationSeeker", "Podaj kierunek.")
             return
         err = self._validate_dates(
-            ("data wylotu", self.var_dep),
-            ("data powrotu", self.var_ret),
+            ("wylot od", self.var_dep_from),
+            ("wylot do", self.var_dep_to),
+            ("powrót od", self.var_ret_from),
+            ("powrót do", self.var_ret_to),
         )
+        if err:
+            messagebox.showerror("VacationSeeker", err)
+            return
+        err = self._validate_ranges()
         if err:
             messagebox.showerror("VacationSeeker", err)
             return
@@ -207,12 +253,10 @@ class LocationReportApp(tk.Tk):
                 settings = Settings()
                 settings.report_path = report_path
                 settings.report_destination = dest
-                d = self.var_dep.get().strip()
-                r = self.var_ret.get().strip()
-                settings.report_departure_from = d
-                settings.report_departure_to = d
-                settings.report_return_from = r
-                settings.report_return_to = r
+                settings.report_departure_from = self.var_dep_from.get().strip()
+                settings.report_departure_to = self.var_dep_to.get().strip()
+                settings.report_return_from = self.var_ret_from.get().strip()
+                settings.report_return_to = self.var_ret_to.get().strip()
                 settings.report_adults = adults
                 settings.report_children_ages = children
 

@@ -58,7 +58,7 @@ Przyklady:
 - `run_family_watch.bat` (interaktywnie pyta o kierunek)
 - `run_family_watch.bat Majorka sylwester.fischer@gmail.com 2 2026-06-15 2026-08-31 0.5 30 output`
 - `run_raport_location.bat Zakynthos 2026-06-27 2026-07-05 2 12 14 target`
-- `run_raport_location_gui.bat` — okno GUI (kierunek, **jedna data wylotu i jedna powrotu**, dorośli + dzieci z wiekiem); zapis do `report_<Kierunek>.html` (nie nadpisuje `report.html` z `run_report.bat`)
+- `run_raport_location_gui.bat` — okno GUI (pole **lokalizacji**, **zakres dat wylotu** od–do, **zakres powrotu** od–do, dorośli + dzieci); zapis do `report_<Kierunek>.html` (nie nadpisuje `report.html` z `run_report.bat`)
 
 **Raport lokalizacyjny** zapisuje sie jako osobny plik, np. `target/report_Zakynthos.html`, zeby nie nadpisywac ogolnego `report.html`. Z linii komend: `py -3 -m src.vacation_seeker.main run-once --target-folder target --location-report --destination Zakynthos ...`
 
