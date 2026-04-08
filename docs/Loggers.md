@@ -51,8 +51,8 @@ W pliku przekazanym przez `--log-file` (oraz na stderr, gdy brak pliku):
 
 ## Scheduler / GUI
 
-- `schedule` i `add-watch` **nie** dodają automatycznie `RunContext` z pełnym audytem pliku — tylko `run-once` z `main.py`.
-- GUI (`gui_location`) wywołuje `run_once(settings)` bez `ctx` (zachowanie jak wcześniej, bez paska tqdm z CLI).
+- `schedule` i `add-watch` **nie** dodają automatycznego `RunContext` z pełnym audytem pliku — tylko `run-once` z `main.py`.
+- GUI (`gui_location`) wywołuje `run_once(settings, ctx)` z `RunContext(progress_callback=…)`, `no_progress=True` (bez tqdm na stderr) oraz **pasek `ttk.Progressbar`** w oknie — fazy: kolektory, walidacja linków, przygotowanie, przetwarzanie raportu (1–4).
 
 ## Odwołanie stylu
 

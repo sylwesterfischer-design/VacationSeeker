@@ -279,9 +279,11 @@ class LocationReportApp(tk.Tk):
 
         self.btn_run.config(state=tk.DISABLED)
         self.lbl_status.config(text="Pobieranie i walidacja ofert… może potrwać kilka minut.")
+        self.after(0, self._reset_progress_ui)
 
         def task() -> None:
             def done_ok(n_alerts: int) -> None:
+                self._reset_progress_ui()
                 self.btn_run.config(state=tk.NORMAL)
                 self.lbl_status.config(text=f"Gotowe: {report_path}")
                 messagebox.showinfo(
@@ -291,6 +293,7 @@ class LocationReportApp(tk.Tk):
                 )
 
             def done_err(exc: BaseException) -> None:
+                self._reset_progress_ui()
                 self.btn_run.config(state=tk.NORMAL)
                 self.lbl_status.config(text="Błąd.")
                 messagebox.showerror("VacationSeeker", str(exc))
@@ -306,7 +309,16 @@ class LocationReportApp(tk.Tk):
                 settings.report_adults = adults
                 settings.report_children_ages = children
 
-                _ranked, alerts, _ = run_once(settings)
+                run_id = str(uuid.uuid4())
+                ctx = RunContext(
+                    run_id=run_id,
+                    argv=["gui_location", "run-once", f"--destination={dest}"],
+                    dry_run=False,
+                    verbose_items=False,
+                    no_progress=True,
+                    progress_callback=lambda ph, c, t: self._schedule_progress(ph, c, t),
+                )
+                _ranked, alerts, _ = run_once(settings, ctx)
                 self.after(0, lambda: done_ok(len(alerts)))
             except Exception as e:  # noqa: BLE001
                 self.after(0, lambda e=e: done_err(e))
