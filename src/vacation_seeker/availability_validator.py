@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
 from .models import RawOffer
+
+ProgressPhaseCb = Callable[[str, int, int], None]
 
 
 UNAVAILABLE_MARKERS = [
@@ -26,6 +29,7 @@ def filter_available_offers(
     max_workers: int = 8,
     *,
     show_progress: bool = False,
+    progress_callback: ProgressPhaseCb | None = None,
 ) -> list[RawOffer]:
     if not offers:
         return offers
@@ -44,7 +48,8 @@ def filter_available_offers(
         n_fut = len(futures)
         use_manual = False
         pbar = None
-        if show_progress and n_fut > 0:
+        use_gui_cb = progress_callback is not None and n_fut > 0
+        if show_progress and n_fut > 0 and not use_gui_cb:
             try:
                 from tqdm import tqdm
 
@@ -68,6 +73,9 @@ def filter_available_offers(
                 validated.append(offer)
             if pbar is not None:
                 pbar.update(1)
+            elif use_gui_cb:
+                done += 1
+                progress_callback("Walidacja linków", done, n_fut)
             elif use_manual:
                 done += 1
                 sys.stderr.write(

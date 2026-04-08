@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+
+# (etykieta fazy, bieżący krok, kroków w fazie) — np. do paska w GUI; wywoływane z wątku roboczego → UI po .after()
+ProgressCallback = Callable[[str, int, int], None]
 
 
 @dataclass
@@ -14,6 +18,7 @@ class RunContext:
     verbose_items: bool = False
     no_progress: bool = False
     logger: logging.Logger | None = None
+    progress_callback: ProgressCallback | None = None
 
 
 @dataclass

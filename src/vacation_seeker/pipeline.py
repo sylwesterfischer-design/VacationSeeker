@@ -31,6 +31,11 @@ from .top_tier_email import maybe_send_top_tier_email
 from .watcher import evaluate_watch
 
 
+def _pipeline_progress(ctx: RunContext | None, phase: str, current: int, total: int) -> None:
+    if ctx and ctx.progress_callback:
+        ctx.progress_callback(phase, current, total)
+
+
 def _collect_with_progress(
     collectors: list,
     ctx: RunContext | None,
@@ -42,7 +47,8 @@ def _collect_with_progress(
     n = len(collectors)
     use_manual = False
     seq = collectors
-    if ctx is not None and not ctx.no_progress:
+    use_tqdm = ctx is not None and not ctx.no_progress and ctx.progress_callback is None
+    if use_tqdm:
         try:
             from tqdm import tqdm
 
@@ -52,7 +58,7 @@ def _collect_with_progress(
             seq = collectors
 
     for i, c in enumerate(seq):
-        if ctx is not None and not ctx.no_progress and use_manual:
+        if ctx is not None and not ctx.no_progress and use_manual and not ctx.progress_callback:
             sys.stderr.write(f"\rCollectors {i + 1}/{n} ({100 * (i + 1) / max(1, n):.0f}%)")
             sys.stderr.flush()
         try:
@@ -71,13 +77,16 @@ def _collect_with_progress(
                 ctx.logger.exception("collector failed: %s", c.source_name)
             elif ctx and ctx.verbose_items:
                 print(f"[item] {c.source_name} -> EXCEPTION (see logger)", file=sys.stderr)
-    if use_manual and ctx is not None and not ctx.no_progress:
+        if ctx and ctx.progress_callback:
+            ctx.progress_callback("Źródła (kolektory)", i + 1, n)
+    if use_manual and ctx is not None and not ctx.no_progress and not ctx.progress_callback:
         sys.stderr.write("\n")
     return raw_offers, collected_counts, failed
 
 
 def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedResult, list[str], RunSummary]:
     summary = RunSummary(dry_run=bool(ctx and ctx.dry_run))
+    _pipeline_progress(ctx, "Przygotowanie", 1, 1)
     conn = connect(settings.db_path)
     init_schema(conn)
     previous_prices = latest_price_by_hash(conn)
