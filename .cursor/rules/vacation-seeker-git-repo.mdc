@@ -1,0 +1,18 @@
+---
+description: Skończona praca — tylko to repozytorium VacationSeeker (osobny origin)
+alwaysApply: true
+---
+
+# VacationSeeker — repozytorium Git
+
+## Zakres
+Ta reguła dotyczy **wyłącznie** projektu **VacationSeeker** (workspace = katalog z własnym `.git`, np. `VacationSeeker/`).
+
+## Po zakończeniu sensownego bloku pracy (kod, konfiguracja, reguły)
+- **Commity i push** wykonuj tylko w **tym** repozytorium — `git remote -v` ma wskazywać **origin** pod **VacationSeeker** na GitHubie, a nie inne projekty (np. DailySessionLogger_v2).
+- Nie scalaj ani nie kieruj zmian VacationSeeker do innego `origin` ani do monorepo nadrzędnego, chyba że użytkownik wyraźnie tego zażąda.
+- Przed `git push` upewnij się, że jesteś w katalogu root tego projektu (`VacationSeeker`), a nie w folderze nadrzędnym współdzielonym z innym `.git`.
+
+## Gdy użytkownik prosi o „wrzuć na Git” / „commit”
+- Domyślnie: **tylko** `VacationSeeker` i jego **własny** remote.
+- Respektuj `.gitignore` (baza lokalna, `logs/`, `output*` itd. nie powinny trafiać do commita, o ile są ignorowane).

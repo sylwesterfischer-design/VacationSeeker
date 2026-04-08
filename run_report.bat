@@ -40,11 +40,13 @@ if not defined TS set "TS=fallback_%RANDOM%"
 
 set "LOG_FILE=%LOG_DIR%\run_report_%TS%.log"
 set "LAST_LOG=%LOG_DIR%\run_report_last.log"
+rem Tylko stdout trafia do pliku — stderr (tqdm, komunikaty [item], traceback) zostaje na konsoli (inaczej brak paska postepu).
 set "STDOUT_LOG=%LOG_DIR%\run_report_console_%TS%.log"
 
 echo [VacationSeeker] Generowanie raportu do "%TARGET%\report.html"
 echo [VacationSeeker] Log audytu UTF-8: "%LOG_FILE%"
-echo [VacationSeeker] Stdout/stderr Pythona: "%STDOUT_LOG%"
+echo [VacationSeeker] Stdout Pythona ^(telemetry, OK^): "%STDOUT_LOG%"
+echo [VacationSeeker] Pasek kolektorow i bledy: na tym oknie konsoli.
 
 if exist "%PS_EXE%" (
   "%PS_EXE%" -NoProfile -Command "$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -LiteralPath '%CD%\%LOG_FILE%' -Encoding utf8 -Value ($ts + ' BAT run_report.bat — przed Python')"
@@ -53,10 +55,11 @@ if exist "%PS_EXE%" (
 )
 
 rem NIE przekierowuj do tego samego pliku co --log-file: cmd trzyma uchwyt pliku i Python dostaje PermissionError przy FileHandler.
+rem NIE przekierowuj stderr (2^>^&1): tqdm potrzebuje prawdziwej konsoli; inaczej okno wyglada „puste” przez caly run.
 if "%DATE_FROM%"=="" (
-  py -3 -m src.vacation_seeker.main run-once --target-folder "%TARGET%" --log-file "%LOG_FILE%" >> "%STDOUT_LOG%" 2>&1
+  py -3 -m src.vacation_seeker.main run-once --target-folder "%TARGET%" --log-file "%LOG_FILE%" >> "%STDOUT_LOG%"
 ) else (
-  py -3 -m src.vacation_seeker.main run-once --target-folder "%TARGET%" --departure-from "%DATE_FROM%" --departure-to "%DATE_TO%" --destination "%DEST%" --log-file "%LOG_FILE%" >> "%STDOUT_LOG%" 2>&1
+  py -3 -m src.vacation_seeker.main run-once --target-folder "%TARGET%" --departure-from "%DATE_FROM%" --departure-to "%DATE_TO%" --destination "%DEST%" --log-file "%LOG_FILE%" >> "%STDOUT_LOG%"
 )
 
 if errorlevel 1 (
@@ -68,7 +71,7 @@ if errorlevel 1 (
   copy /y "%LOG_FILE%" "%LAST_LOG%" > nul
   echo [VacationSeeker] Blad uruchomienia.
   echo [VacationSeeker] Audyt: "%LOG_FILE%"
-  echo [VacationSeeker] Konsola Pythona zapisana: "%STDOUT_LOG%"
+  echo [VacationSeeker] Zapisany stdout: "%STDOUT_LOG%" ^(bledy byly na konsoli powyzej^)
   type "%STDOUT_LOG%" 2>nul
   pause
   exit /b 1
@@ -83,6 +86,6 @@ if exist "%PS_EXE%" (
 copy /y "%LOG_FILE%" "%LAST_LOG%" > nul
 echo [VacationSeeker] OK.
 echo [VacationSeeker] Ostatni log audytu: "%LAST_LOG%"
-echo [VacationSeeker] Pelny zrzut konsoli: "%STDOUT_LOG%"
+echo [VacationSeeker] Zapisany stdout ^(telemetry itd.^): "%STDOUT_LOG%"
 if "%HOLD%"=="hold" pause
 endlocal

@@ -71,9 +71,9 @@ Parametry `run_family_watch.bat`:
 Parametry `run_report.bat`:
 - `target_folder [data_od data_do kierunek]`
 - opcjonalny 5. parametr `hold` zostawia okno otwarte
-- logi zapisuja sie do `logs\run_report_*.log` oraz `logs\run_report_last.log` (UTF-8, linie BAT z timestampem + wyjscie Pythona + `START`/`END` z `--log-file`)
+- logi: **audyt** `logs\run_report_*.log` (`--log-file`: START/END, traceback) + kopia `run_report_last.log`; **stdout** Pythona w `logs\run_report_console_*.log`; **pasek postepu (tqdm)** i stderr na **oknie konsoli** (bez `2>&1` do pliku — patrz `docs/Loggers.md` i `.cursorrules_CodingImprovment` § postep BEZWZGLĘDNIE)
 
-**Observability (run-once z CLI):** `--log-file PATH` (audyt START/END, traceback), `--dry-run` (bez DB/HTML/maili), `--verbose-items` (kazdy kolektor), `--no-progress` (bez tqdm). Pelny opis: `docs/Loggers.md`.
+**Observability (run-once z CLI):** `--log-file PATH` (audyt START/END, traceback), `--dry-run` (bez DB/HTML/maili), `--verbose-items` (kazdy kolektor), `--no-progress` (wylacza tqdm: kolektory + walidacja linkow). Pelny opis: `docs/Loggers.md` (zgodnosc z `.cursorrules_CodingImprovment`).
 
 Parametry `run_raport_location.bat`:
 - `lokalizacja data_wylotu_od data_wylotu_do data_powrotu_od data_powrotu_do dorosli dziecko1_wiek dziecko2_wiek target_folder`

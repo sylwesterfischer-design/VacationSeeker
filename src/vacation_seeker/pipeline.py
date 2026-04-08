@@ -102,6 +102,7 @@ def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedR
         raw_offers = filter_available_offers(
             raw_offers,
             timeout_seconds=settings.validation_timeout_seconds,
+            show_progress=ctx is not None and not ctx.no_progress,
         )
         after_validation_counts = _count_by_source(raw_offers)
     summary.after_validation = len(raw_offers)

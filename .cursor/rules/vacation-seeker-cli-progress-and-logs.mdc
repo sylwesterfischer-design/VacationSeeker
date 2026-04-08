@@ -1,0 +1,35 @@
+---
+description: VacationSeeker — batch, logi i pasek postępu (tqdm); unikanie powtórzenia błędów
+alwaysApply: true
+---
+
+# VacationSeeker — CLI, `run_report.bat`, tqdm i pliki logów
+
+## Źródło wymagań (ten projekt)
+Pełna lista **obowiązkowych** elementów observability: **`.cursorrules_CodingImprovment`** → sekcja **„Logowanie i wizualizacja wykonania postępu skryptu (BEZWZGLĘDNIE)”** (START/END, plik logu, **postęp current/total** z `tqdm` na stderr + fallback `%`, `--verbose-items`, `--dry-run`, `--no-progress`, dokumentacja w README/`docs/Loggers.md`). Zmiany w kodzie logowania/postępu **w tej samej zmianie** aktualizują `docs/Loggers.md`.
+
+## Cel
+Żeby **nie powtarzać** dwóch klas problemów: (1) brak paska postępu / „puste” okno cmd, (2) `PermissionError` przy otwarciu pliku logu przez Pythona.
+
+## 1. Pasek postępu (`tqdm`) i przekierowania w `.bat`
+- W `pipeline.py` pasek **kolektorów** używa **`tqdm(..., file=sys.stderr)`**.
+- W `availability_validator.py` pasek **walidacji linków** (pętla po ofertach HTTP) — ten sam wzorzec + fallback tekstowy; włączany z pipeline gdy jest `RunContext` i **nie** `--no-progress`.
+- **`tqdm` sensownie pokazuje pasek tylko gdy stderr to prawdziwa konsola (TTY)**. Gdy stderr jest przekierowany do pliku (`2>…` albo `>> plik 2>&1`), okno wygląda jak „wiszące” / puste mimo że proces działa.
+- **Nie dodawaj** do wywołań Pythona z `run_report.bat` (ani podobnych skryptów) przekierowania **`2>&1` do pliku**, jeśli ma być widoczny postęp w oknie — zostaw **stderr na konsoli**. Do pliku można kierować **wyłącznie stdout** (`>> plik` bez `2>&1`), jeśli potrzebny jest zrzut części wyjścia.
+- Po zmianach w `.bat` krótko opisz w echo / komentarzu w pliku: co trafia do pliku, a co zostaje na konsoli.
+
+## 2. Ten sam plik co `--log-file` i przekierowanie cmd
+- **`--log-file`** powoduje, że Python otwiera ten plik przez `logging.FileHandler` (tryb append).
+- **Nie przekierowuj** stdout ani stderr procesu Pythona **do tej samej ścieżki** co `--log-file` w jednym wywołaniu — w Windows cmd często pojawia się **kolizja uchwytów** i **`PermissionError`** przy drugim otwarciu.
+- Rozdziel: np. audyt w pliku z `--log-file`, ewentualny zrzut stdout w **innym** pliku (np. `run_report_console_*.log`).
+
+## 3. Gdy ktoś prosi o „pełny log w jednym pliku”
+- Najpierw ustal: czy priorytetem jest **interaktywny pasek** (wtedy stderr → konsola), czy **jeden plik ze wszystkim** (wtedy często trzeba zaakceptować brak normalnego paska albo rozwiązanie typu `tee` w PowerShell z świadomością, że tqdm może źle się renderować).
+- Domyślnie dla `run_report.bat` utrzymuj model: **audyt `--log-file`**, **stdout opcjonalnie do osobnego pliku**, **stderr na konsoli** dla tqdm.
+
+## 4. Dotknięte pliki (orientacja)
+- `run_report.bat` — przekierowania i komunikaty do użytkownika.
+- `src/vacation_seeker/pipeline.py` — `_collect_with_progress`, `tqdm` na stderr.
+- `src/vacation_seeker/availability_validator.py` — `filter_available_offers(..., show_progress=...)`.
+- `src/vacation_seeker/run_audit.py` — `configure_run_logger` / `FileHandler`.
+- `docs/Loggers.md`, `README.md` — spójny opis z `.cursorrules_CodingImprovment`.

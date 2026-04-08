@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -23,6 +24,8 @@ def filter_available_offers(
     offers: list[RawOffer],
     timeout_seconds: int = 12,
     max_workers: int = 8,
+    *,
+    show_progress: bool = False,
 ) -> list[RawOffer]:
     if not offers:
         return offers
@@ -38,6 +41,23 @@ def filter_available_offers(
         # Keep non-http entries (defensive fallback).
         validated.extend([o for o in offers if not o.source_url.startswith("http")])
 
+        n_fut = len(futures)
+        use_manual = False
+        pbar = None
+        if show_progress and n_fut > 0:
+            try:
+                from tqdm import tqdm
+
+                pbar = tqdm(
+                    total=n_fut,
+                    desc="Link validation",
+                    file=sys.stderr,
+                    unit="url",
+                )
+            except ImportError:
+                use_manual = True
+
+        done = 0
         for fut in as_completed(futures):
             offer = futures[fut]
             try:
@@ -46,6 +66,19 @@ def filter_available_offers(
             except Exception:
                 # If validator fails unexpectedly, keep the offer instead of losing data.
                 validated.append(offer)
+            if pbar is not None:
+                pbar.update(1)
+            elif use_manual:
+                done += 1
+                sys.stderr.write(
+                    f"\rLink validation {done}/{n_fut} ({100 * done / max(1, n_fut):.0f}%)"
+                )
+                sys.stderr.flush()
+
+        if pbar is not None:
+            pbar.close()
+        elif use_manual and n_fut > 0:
+            sys.stderr.write("\n")
     return validated
 
 
