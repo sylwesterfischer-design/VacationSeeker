@@ -1,0 +1,29 @@
+---
+description: VacationSeeker - Data Feeding Layers (pelna lista zrodel)
+alwaysApply: true
+---
+
+# VacationSeeker - Zasada Data Feeding
+
+## Cel
+Przy każdym zadaniu związanym z „szukaniem ofert” lub „zbieraniem okazji”, zanim wykonasz kolejne kroki (normalizacja, scoring, ranking, HTML), najpierw zweryfikuj warstwę pozyskania danych (**DataFeedingLayers**): lista kolektorów w `pipeline.py` oraz implementacja w `src/vacation_seeker/collectors/`.
+
+## Obowiązkowa checklist przed dalszym działaniem
+- Sprawdź, które `collectors` są uruchamiane w `pipeline.py` (lista `collectors`).
+- Potwierdź pełny zestaw warstw LIVE (nazwy `source_name`):
+  - `wakacyjni_piraci_rss`, `tui_live`, `rainbow_live`
+  - `itaka_lastminute_live`
+  - `fly4free_rss`, `holidaypirates_rss` (okazje lotów/pakietów; nie portale informacyjne ani redakcja „podróże” bez ofert)
+- Sprawdź, czy i kiedy wchodzi fallback:
+  - `mock_feed` (np. `VACATION_USE_MOCK_FALLBACK` / `settings.use_mock_fallback`)
+- Sprawdź, czy włączona jest walidacja dostępności linków ofert:
+  - `filter_available_offers` (np. `settings.validate_offer_links`)
+- Sprawdź, jak aplikacja raportuje „tryb danych” w wyniku:
+  - `data_mode` (LIVE / LIVE+MOCK / MOCK_ONLY / NO_DATA)
+
+## Zasady komunikacji w odpowiedzi
+- Jeśli w raporcie/odpowiedzi pojawia się informacja o trybie danych (`data_mode`), to:
+  - wyjaśnij krótko, co to znaczy (czy były LIVE source'y, czy tylko mock, czy brak danych).
+- Jeśli brakuje danych z jednego źródła (np. timeout RSS, pusty feed):
+  - wskazuj to jako ryzyko (np. możliwa niepełność oferty), a nie jako pewnik.
+- `fly4free` / `holidaypirates` to **wpisy okazji** (deal_post), nie katalog biura — weryfikuj linkiem. Wakacyjni Piraci RSS tak samo.

@@ -1,0 +1,2 @@
+"""VacationSeeker package."""
+

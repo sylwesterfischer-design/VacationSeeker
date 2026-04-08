@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Lokalne dane i artefakty uruchomień
+vacation_seeker.db
+*.db-journal
+logs/
+target/
+output/
+output_*/
+14/
+
+# IDE / OS
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini

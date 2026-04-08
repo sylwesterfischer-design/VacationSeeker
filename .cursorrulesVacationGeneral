@@ -1,0 +1,171 @@
+---
+description: Agent do wyszukiwania i agregacji okazji last minute
+alwaysApply: true
+---
+
+# Vacation Seeker - Last Minute Rules
+
+## Cel agenta
+- Znajduj najtańsze i najkorzystniejsze oferty last minute dla wyjazdów z Polski.
+- Agreguj dane z wielu źródeł w jedno miejsce i usuwaj duplikaty.
+- Priorytet: użyteczność dla użytkownika, aktualność oferty, zgodność z regulaminami źródeł.
+
+## Wakacyjni Piraci (RSS)
+- `pubDate` w RSS to **data publikacji wpisu**, nie termin lotu — nie mapuj jej na „wylot” bez wyraźnego oznaczenia.
+- Parsuj terminy z treści: zakresy `dd.mm.yyyy`, polskie miesiące („14 - 21 maja”), frazy „proponowany termin”; przy braku danych w skróconym RSS pobierz HTML artykułu i parsuj pełną treść.
+
+## Zadanie 1: Data feeding (skąd pobierać dane)
+- Zawsze preferuj oficjalne API lub feed partnera.
+- Jeśli brak API, użyj kanałów pośrednich (agregatory, RSS, newsletter, oficjalna aplikacja z powiadomieniami).
+- Scraping HTML stosuj tylko gdy jest legalny i dozwolony przez ToS/robots, z limitowaniem zapytań.
+- W raporcie zawsze pokazuj tryb danych: LIVE / LIVE+MOCK / MOCK_ONLY / NO_DATA.
+
+### Priorytet źródeł (od najlepszych technicznie)
+1. Publiczne/partnerskie API lotów i metasearch:
+   - Skyscanner APIs (partner access)
+   - Amadeus Travel APIs (partner/produkcyjne po akceptacji)
+   - Kiwi Tequila API (loty)
+2. Portale agregujące oferty biur:
+   - Wakacje.pl
+   - Travelplanet.pl
+   - Fly4free / HolidayPirates-like deal portals (feedy/oferty redakcyjne)
+3. Serwisy operatorów (bez gwarancji API publicznego):
+   - TUI Polska
+   - Rainbow (r.pl)
+   - Wakacyjni Piraci (głównie content + powiadomienia/newsletter)
+4. Dodatkowe źródła "najciekawsze okazje":
+   - Skyscanner/KAYAK jako benchmark ceny lotu
+   - Lastminute.com (gdy dostępne feedy partnerskie)
+
+### Google Flights - zasada
+- Traktuj Google Flights jako źródło referencyjne UX/cen dla użytkownika, ale nie zakładaj publicznego API.
+- Do automatyzacji pobrań używaj alternatywnych API (Skyscanner/Amadeus/Kiwi).
+
+## Minimalny model danych (normalizacja)
+- source_name
+- source_url
+- collected_at_utc
+- destination_country
+- destination_city_or_region
+- departure_airport
+- departure_date
+- return_date
+- trip_nights
+- board_type (AI/HB/BB/RO)
+- hotel_name
+- hotel_stars
+- package_type (flight+hotel / hotel / tour)
+- price_total_pln
+- price_per_person_pln
+- airport_transfer_cost_pln
+- baggage_cost_pln
+- local_daily_cost_pln
+- total_trip_cost_pln
+- price_confidence (high/medium/low)
+- people_supported (1, 2, unknown)
+- baggage_included (yes/no/unknown)
+- transfer_included (yes/no/unknown)
+- cancellation_terms
+- promo_tag (last_minute, flash_sale, error_fare, itd.)
+- offer_id_hash (hash do deduplikacji)
+
+## Zadanie 2: Agregacja i ranking ofert
+- Grupuj oferty po oknie wylotu:
+  - 0-3 dni
+  - 4-7 dni
+  - 8-14 dni
+  - 15-30 dni
+  - 31-56 dni
+- Sortowanie domyślne:
+  1) najbliższy termin wylotu
+  2) najniższa cena realna za osobę (total_trip_cost_pln)
+  3) najwyższa wartość (score)
+- Utrzymuj dwa rankingi cen:
+  - nominalny (price_per_person_pln)
+  - realny (total_trip_cost_pln)
+- Oblicz score oferty:
+  - +50% realny koszt per osoba vs mediana dla kierunku i długości
+  - +20% cena nominalna vs mediana
+  - +20% jakość hotelu i opinii (jeśli dostępne)
+  - +15% wygoda lotu (godziny, przesiadki)
+  - +10% komplet świadczeń (bagaż/transfer/wyżywienie)
+  - +10% pewność dostępności (świeżość danych)
+  - +5% bonus za "last minute" z wysoką zniżką
+  - -kara za niską pewność ceny (price_confidence=low)
+- Deduplikacja:
+  - Klucz: kierunek + daty + hotel + operator + cena (+/- tolerancja)
+  - Zachowaj 1 rekord główny i listę źródeł potwierdzających.
+
+## Zadanie 3: Podział na 1 lub 2 osoby
+- Zawsze generuj dwa rankingi:
+  - TOP dla 1 osoby (solo)
+  - TOP dla 2 osób (para)
+- Jeśli źródło podaje tylko cenę całkowitą:
+  - 1 osoba: price_total_pln / 1
+  - 2 osoby: price_total_pln / 2
+  - Oznacz confidence=low, gdy brak jawnej ceny per osoba.
+- Dla 2 osób preferuj oferty z:
+  - potwierdzoną dostępnością pokoju 2-osobowego
+  - niską dopłatą single (gdy porównujesz z solo)
+- Odrzucaj oferty niespełniające liczby osób, nawet jeśli są tańsze.
+
+## Family Watch (monitoring celu i alerty)
+- Agent musi wspierać profile watch z parametrami:
+  - destination_query
+  - adults
+  - children_ages
+  - departure_from (opcjonalnie)
+  - departure_to (opcjonalnie)
+  - target_email
+  - drop_ratio (np. 0.5 = 50%)
+  - max_total_pln (opcjonalnie)
+- Dla watcha rodzinnego (np. 2+2) licz:
+  - family_total_cost = total_trip_cost_pln * liczba_podroznych
+- Definicja NAJLEPSZEJ OFERTY:
+  1) filtr po destination_query
+  2) wybór minimalnego family_total_cost
+  3) porównanie do mediany kosztu rodzinnego dla tej destynacji
+  4) alert gdy spadek >= drop_ratio oraz (opcjonalnie) <= max_total_pln
+- Wysyłaj alert mailowy tylko raz na tę samą ofertę (watch_id + offer_id_hash).
+- W treści alertu zawsze pokaż ryzyko ukrytych kosztów (bagaż/transfer/braki danych).
+
+## Wynik prezentacji (format odpowiedzi agenta)
+- Pokaż sekcję porównawczą: "najtaniej nominalnie" vs "najtaniej realnie".
+- Dla każdego okna terminu pokaż max 5 najlepszych ofert.
+- Każdy rekord musi zawierać:
+  - cena/os.
+  - total
+  - termin
+  - lotnisko wylotu
+  - kierunek
+  - hotel + wyżywienie
+  - źródło + link
+  - krótki powód "dlaczego warto"
+- Dodaj sekcję "alerty":
+  - nowe okazje od ostatniego odświeżenia
+  - oferty, których cena spadła min. 8%
+
+## Operacyjne zasady jakości
+- Każda oferta starsza niż 6h dostaje znacznik stale_data=true.
+- Jeśli nie można potwierdzić ceny w drugim źródle, oznacz verification=single_source.
+- Nie halucynuj brakujących parametrów: użyj unknown/null i jasno to oznacz.
+- W odpowiedzi zawsze oddziel dane pewne od szacunków.
+- Oznaczaj wyraźnie pozycje z estymowanym kosztem dodatków (transfer/bagaż/lokalne wydatki).
+
+## Legal i etyka
+- Przestrzegaj ToS, robots.txt i limitów rate-limit.
+- Nie obchodź zabezpieczeń, logowania, captcha ani paywalli.
+- Przy scrapingu używaj cache i minimalnej częstotliwości odpytań.
+
+## Walidacja dostępności ofert
+- Przed publikacją oferty do raportu wykonuj walidację URL oferty.
+- Jeśli strona zawiera sygnały niedostępności (np. "oferta niedostępna", "nie jest dostępna"), odrzucaj ofertę.
+- Lepsza jakość danych ma priorytet nad liczbą rekordów.
+
+## Raport ogólny (run_report.bat)
+- Główne tabele (TOP, okna 0–56 dni): tylko oferty z **wylotem w ciągu N miesięcy** od dzisiaj (`VACATION_REPORT_HORIZON_MONTHS`, domyślnie 6). Terminy dalsze (np. za rok) — osobna sekcja HTML na dole, bez mieszania z last minute.
+
+## Raport lokalizacyjny (GUI / run_raport_location)
+- Nie nadpisuj ogólnego `report.html` z `run_report.bat`: zapisuj raport lokalizacyjny jako osobny plik `report_<kierunek>.html` w wybranym folderze (CLI: `--location-report` lub GUI `gui_location`).
+- GUI: kierunek, **jedna data wylotu i jedna data powrotu** (filtr from=to), dorośli, lista dzieci z wiekiem, folder docelowy.
+- Gdy brak ofert w feedach po filtrze: na dole raportu tabela linków do metasearch (Kayak / Google Flights / Skyscanner) — gotowe URL-e wyszukiwania, bez API; pasażerowie jak w GUI (`adults` + wieki dzieci), nie „1 osoba” ani „wszyscy dorośli”; lotnisko startowe z `VACATION_ORIGIN_AIRPORT` (np. WAW).

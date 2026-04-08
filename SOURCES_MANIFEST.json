@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "project": "VacationSeeker",
+  "description_pl": "Lista WSZYSTKICH źródeł LIVE (łącznie 6): 3 kolektory w live_sources.py + 3 w extra_feeds.py. Pole implementation / collector_group mówi, który plik. „Extra” to tylko nazwa modułu extra_feeds.py — NIE są pominięte w tym manifeście.",
+  "live_sources_file": "src/vacation_seeker/collectors/live_sources.py",
+  "extra_feeds_file": "src/vacation_seeker/collectors/extra_feeds.py",
+  "extra_sources": [
+    "fly4free_rss",
+    "holidaypirates_rss",
+    "itaka_lastminute_live"
+  ],
+  "live_sources_only": [
+    "wakacyjni_piraci_rss",
+    "tui_live",
+    "rainbow_live"
+  ],
+  "cursor_setup_pl": [
+    "Sklonuj lub skopiuj cały folder projektu VacationSeeker (najlepiej git clone).",
+    "Reguły dla agenta: skopiuj pliki .cursorrules*.mdc z katalogu głównego projektu do swojego workspace, albo wklej treść do .cursor/rules/*.mdc w Cursorze (Project Rules).",
+    "Uruchomienie aplikacji: venv, pip install -r requirements.txt, python -m src.vacation_seeker.main run-once — wtedy 'baza' źródeł działa z kodu, nie z tego JSON.",
+    "Ten plik JSON możesz trzymać obok repo jako spis URL-i i nazw source_name — nie zastępuje plików collectors/*.py.",
+    "Szerszy prompt + Tequila API + SMTP + RSS: PROMPT_BAZA_KUMPLA.md w katalogu głównym repo."
+  ],
+  "pipeline_order": [
+    "wakacyjni_piraci_rss",
+    "tui_live",
+    "rainbow_live",
+    "fly4free_rss",
+    "holidaypirates_rss",
+    "itaka_lastminute_live"
+  ],
+  "cursor_rule_files_in_repo": [
+    ".cursorrulesVacationGeneral",
+    ".cursorrulesVacationDataFeeding.mdc"
+  ],
+  "sources": [
+    {
+      "source_name": "wakacyjni_piraci_rss",
+      "collector_group": "live_sources",
+      "kind": "rss",
+      "primary_url": "https://www.wakacyjnipiraci.pl/feed/",
+      "implementation": "src/vacation_seeker/collectors/live_sources.py",
+      "notes_pl": "Opcjonalnie pobieranie HTML artykułu (zmienne VACATION_PIRACI_*)."
+    },
+    {
+      "source_name": "tui_live",
+      "collector_group": "live_sources",
+      "kind": "next_json",
+      "primary_urls": [
+        "https://www.tui.pl/last-minute",
+        "https://www.tui.pl/last-minute?page=2",
+        "https://www.tui.pl/last-minute?page=3"
+      ],
+      "implementation": "src/vacation_seeker/collectors/live_sources.py",
+      "notes_pl": "Skrypt __NEXT_DATA__ w HTML."
+    },
+    {
+      "source_name": "rainbow_live",
+      "collector_group": "live_sources",
+      "kind": "html_ssr",
+      "primary_url": "https://www.r.pl/last-minute",
+      "implementation": "src/vacation_seeker/collectors/live_sources.py",
+      "notes_pl": "Paginacja ?strona=N."
+    },
+    {
+      "source_name": "fly4free_rss",
+      "collector_group": "extra_feeds",
+      "kind": "rss",
+      "primary_url": "https://www.fly4free.pl/feed/",
+      "implementation": "src/vacation_seeker/collectors/extra_feeds.py",
+      "notes_pl": "Okazje lotów/wyjazdów — deal_post. Filtr: VACATION_FLY4FREE_FILTER (domyślnie włączony), VACATION_FLY4FREE_MIN_PLN/MAX_PLN, VACATION_FLY4FREE_REQUIRE_CATEGORY=1 tylko kategorie okazji."
+    },
+    {
+      "source_name": "holidaypirates_rss",
+      "collector_group": "extra_feeds",
+      "kind": "rss",
+      "primary_url": "https://www.holidaypirates.pl/feed/",
+      "implementation": "src/vacation_seeker/collectors/extra_feeds.py",
+      "notes_pl": "Może zwracać 0 przy timeout sieci."
+    },
+    {
+      "source_name": "itaka_lastminute_live",
+      "collector_group": "extra_feeds",
+      "kind": "next_json",
+      "primary_url": "https://www.itaka.pl/last-minute/",
+      "implementation": "src/vacation_seeker/collectors/extra_feeds.py",
+      "notes_pl": "Zmienne VACATION_ITAKA_MAX_OFFERS, VACATION_ITAKA_TIMEOUT."
+    }
+  ]
+}
