@@ -34,8 +34,8 @@ rem set "VACATION_AMADEUS_CLIENT_SECRET=..."
 rem set "VACATION_AMADEUS_HOST=test.api.amadeus.com"
 rem set "VACATION_AMADEUS_CURRENCY=PLN"
 
-rem Opcjonalnie inna domena Kayak (domyslnie www.kayak.pl) i klasa kabiny w sciezce URL:
-rem set "VACATION_KAYAK_FLIGHTS_HOST=www.kayak.com"
+rem Kayak: domyslnie VacationSeeker uzywa www.kayak.com; ten raport PL — wymuszamy .pl (jak w UI z zalacznika).
+set "VACATION_KAYAK_FLIGHTS_HOST=www.kayak.pl"
 rem set "VACATION_KAYAK_CABIN=economy"
 
 set "LOG_DIR=logs"
