@@ -8,6 +8,7 @@ a nie „łączna liczba osób” jako dorośli.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from urllib.parse import quote, urlencode
 
@@ -106,6 +107,40 @@ def _passenger_summary_pl(ctx: FlightFallbackContext) -> str:
     return "; ".join(parts)
 
 
+def _kayak_flights_host() -> str:
+    return (os.getenv("VACATION_KAYAK_FLIGHTS_HOST") or "www.kayak.pl").strip() or "www.kayak.pl"
+
+
+def _kayak_cabin_segment() -> str:
+    c = (os.getenv("VACATION_KAYAK_CABIN") or "economy").strip().lower() or "economy"
+    return c
+
+
+def _kayak_minor_buckets(children_ages: tuple[int, ...]) -> tuple[list[int], list[int], list[int]]:
+    """Wiek 0–1 → niemowlęta; 2–11 → dzieci; 12–17 → młodzież (Kayak)."""
+    infants = [a for a in children_ages if 0 <= a <= 1]
+    kids = [a for a in children_ages if 2 <= a <= 11]
+    youths = [a for a in children_ages if 12 <= a <= 17]
+    return infants, kids, youths
+
+
+def _kayak_pax_path_segment(adults: int, children_ages: tuple[int, ...]) -> str:
+    """Segment ścieżki po klasie kabiny — zawsze jawna liczba dorosłych (np. 1adults), nigdy pusty."""
+    a = max(1, adults)
+    parts: list[str] = [f"{a}adults"]
+    infants, kids, youths = _kayak_minor_buckets(children_ages)
+    if infants:
+        parts.append(f"infants-{len(infants)}")
+    if kids:
+        parts.append(f"children-{len(kids)}")
+    if youths:
+        parts.append(f"youths-{len(youths)}")
+    # Wiek spoza kubełków (np. błędnie 18 w „dzieciach”) — traktuj jak dzieci w ścieżce, żeby nie zgubić licznika
+    if not infants and not kids and not youths and children_ages:
+        parts.append(f"children-{len(children_ages)}")
+    return "-".join(parts)
+
+
 def kayak_roundtrip_url(
     origin: str,
     dest: str,
@@ -117,25 +152,33 @@ def kayak_roundtrip_url(
     sort: str = "bestflight_a",
 ) -> str:
     """
-    Kayak PL — daty YYYY-MM-DD w ścieżce.
+    Kayak (kayak.pl / kayak.com wg VACATION_KAYAK_FLIGHTS_HOST) — lot w obie strony.
 
-    Samo `?adults=&children=` jest często ignorowane — Kayak oczekuje segmentu w ścieżce,
-    np. `/2adults-children-2` (wtedy UI pokazuje 2 dorosłych + 2 dzieci).
+    Kayak wymaga w ścieżce segmentu **klasy** (np. ``economy``) przed liczbą pasażerów — inaczej
+    często resetuje wyszukiwanie do domyślnego „1 dorosły”. Dodatkowo: dzieci 2–11 i młodzież 12–17
+    to osobne segmenty ``children-N`` / ``youths-N`` + parametry query ``adults`` / ``children`` /
+    ``childages`` / ``youthages`` (redundancja dla parsera strony).
     """
     o, d = origin.upper(), dest.upper()
-    base = f"https://www.kayak.pl/flights/{o}-{d}/{dep}/{ret}"
+    host = _kayak_flights_host()
+    cabin = _kayak_cabin_segment()
+    base = f"https://{host}/flights/{o}-{d}/{dep}/{ret}"
     a = max(1, adults)
-    n_children = len(children_ages)
+    pax_seg = _kayak_pax_path_segment(a, children_ages)
+    path = f"{base}/{cabin}/{pax_seg}"
 
-    # Segment pasażerów (weryfikowany na kayak.pl — bez tego zostaje 1 dorosły)
-    if n_children == 0:
-        pax_seg = f"{a}adults" if a > 1 else ""
-    else:
-        pax_seg = f"{a}adults-children-{n_children}"
-
-    path = f"{base}/{pax_seg}" if pax_seg else base
-    q: dict[str, str] = {"sort": sort}
-    if children_ages:
+    infants, kids, youths = _kayak_minor_buckets(children_ages)
+    q: dict[str, str] = {
+        "sort": sort,
+        "adults": str(a),
+        "children": str(len(kids) + len(youths)),
+        "infants": str(len(infants)),
+    }
+    if kids:
+        q["childages"] = ",".join(str(x) for x in sorted(kids))
+    if youths:
+        q["youthages"] = ",".join(str(x) for x in sorted(youths))
+    if not kids and not youths and children_ages:
         q["childages"] = ",".join(str(x) for x in children_ages)
     return f"{path}?{urlencode(q)}"
 
@@ -252,7 +295,7 @@ def build_fallback_rows(ctx: FlightFallbackContext) -> list[tuple[str, str, str]
             (
                 "Kayak — wyszukiwanie po nazwie",
                 f"Nie znaleziono kodu IATA dla „{ctx.destination_label}” — otwórz Kayak i wskaż lotnisko docelowe.",
-                "https://www.kayak.pl/flights",
+                f"https://{_kayak_flights_host()}/flights",
             )
         )
 
@@ -279,7 +322,8 @@ def fallback_section_html(ctx: FlightFallbackContext) -> str:
     )
     note = (
         "<p><em>Uwaga: ceny na Kayak / Google / Skyscanner są dynamiczne — to linki do gotowego wyszukiwania, "
-        "nie gwarancja ceny z raportu VacationSeeker. Google Flights liczy „dzieci” zwykle w wieku 2–11 lat; "
+        "nie gwarancja ceny z raportu VacationSeeker. Linki Kayak zawierają segment klasy (np. economy) oraz "
+        "pasażerów (w tym młodzież 12–17 jako youths). Google Flights liczy „dzieci” zwykle w wieku 2–11 lat; "
         "osoby 12+ mogą pojawić się jako dorośli — ceny i tak są za całą grupę z GUI.</em></p>"
     )
     pax = _esc(_passenger_summary_pl(ctx))

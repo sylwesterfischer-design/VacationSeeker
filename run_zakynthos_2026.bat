@@ -34,6 +34,10 @@ rem set "VACATION_AMADEUS_CLIENT_SECRET=..."
 rem set "VACATION_AMADEUS_HOST=test.api.amadeus.com"
 rem set "VACATION_AMADEUS_CURRENCY=PLN"
 
+rem Opcjonalnie inna domena Kayak (domyslnie www.kayak.pl) i klasa kabiny w sciezce URL:
+rem set "VACATION_KAYAK_FLIGHTS_HOST=www.kayak.com"
+rem set "VACATION_KAYAK_CABIN=economy"
+
 set "LOG_DIR=logs"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 set "TS="
