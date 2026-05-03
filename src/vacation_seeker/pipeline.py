@@ -22,6 +22,7 @@ from .db import (
 )
 from .emailer import send_email
 from .flight_fallback_links import FlightFallbackContext, parse_children_ages
+from .metasearch_sections import parse_csv_tokens, render_metasearch_footer_html
 from .models import Offer
 from .normalizer import normalize
 from .presenter_html import render_html
@@ -128,6 +129,7 @@ def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedR
         save_offers(conn, offers)
         summary.db_saved = True
     report_offers = _filter_report_offers(offers, settings)
+    report_offers = _filter_by_hotel_area_keywords(report_offers, settings)
     report_near, report_far = _split_offers_by_departure_horizon(report_offers, settings.report_horizon_months)
     summary.report_near_count = len(report_near)
     ranked = rank(report_near)
@@ -145,12 +147,14 @@ def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedR
     if report_near:
         best_highlight = min(report_near, key=lambda o: o.total_trip_cost_pln)
 
+    matrix_ready = _metasearch_flight_matrix_ready(settings)
     flight_fallback: FlightFallbackContext | None = None
     if (
         not report_offers
         and settings.report_destination
         and settings.report_departure_from
         and settings.report_return_to
+        and not matrix_ready
     ):
         flight_fallback = FlightFallbackContext(
             destination_label=settings.report_destination,
@@ -160,6 +164,8 @@ def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedR
             adults=max(1, settings.report_adults),
             children_ages=parse_children_ages(settings.report_children_ages),
         )
+
+    metasearch_footer_html = _build_metasearch_footer_html(settings)
 
     if not (ctx and ctx.dry_run):
         render_html(
@@ -174,6 +180,7 @@ def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedR
             flight_fallback=flight_fallback,
             offers_beyond_horizon=report_far,
             horizon_months=settings.report_horizon_months,
+            metasearch_footer_html=metasearch_footer_html,
         )
         summary.html_written = True
         maybe_send_top_tier_email(conn, settings, report_near)
@@ -220,6 +227,60 @@ def _run_watches(conn, settings: Settings, offers) -> int:
             save_watch_event(conn, hit.watch_id, hit.offer_id_hash)
             sent_n += 1
     return sent_n
+
+
+def _metasearch_flight_matrix_ready(settings: Settings) -> bool:
+    """Czy na końcu raportu będzie macierz lotów (wtedy pomijamy pojedynczy blok fallback)."""
+    if not settings.append_metasearch_footer:
+        return False
+    deps = parse_csv_tokens(settings.flight_matrix_departures)
+    rets = parse_csv_tokens(settings.flight_matrix_returns)
+    return bool(deps and rets)
+
+
+def _build_metasearch_footer_html(settings: Settings) -> str:
+    if not settings.append_metasearch_footer:
+        return ""
+    deps = parse_csv_tokens(settings.flight_matrix_departures)
+    rets = parse_csv_tokens(settings.flight_matrix_returns)
+    towns = parse_csv_tokens(settings.hotel_metasearch_towns)
+    cin, cout = settings.hotel_stay_checkin, settings.hotel_stay_checkout
+    dest = (settings.report_destination or "").strip() or "Zakynthos"
+    if not (deps and rets and cin and cout and towns):
+        return (
+            "<section id=\"vacation-metasearch-bundle\"><hr style=\"margin:32px 0;\"/>"
+            "<h2>Porównanie zewnętrzne (loty + hotele)</h2>"
+            "<p><strong>VACATION_APPEND_METASEARCH</strong> jest włączone, ale brakuje kompletu zmiennych: "
+            "<code>VACATION_FLIGHT_MATRIX_DEPARTURES</code>, <code>VACATION_FLIGHT_MATRIX_RETURNS</code>, "
+            "<code>VACATION_HOTEL_STAY_CHECKIN</code>, <code>VACATION_HOTEL_STAY_CHECKOUT</code>, "
+            "<code>VACATION_HOTEL_TOWNS</code> (patrz <code>run_zakynthos_2026.bat</code>).</p></section>"
+        )
+    return render_metasearch_footer_html(
+        origin_iata=settings.origin_airport_iata,
+        destination_label=dest,
+        departure_dates=deps,
+        return_dates=rets,
+        hotel_checkin=cin,
+        hotel_checkout=cout,
+        hotel_towns=towns,
+        adults=max(1, settings.report_adults),
+        children_ages=parse_children_ages(settings.report_children_ages),
+    )
+
+
+def _filter_by_hotel_area_keywords(offers: list[Offer], settings: Settings) -> list[Offer]:
+    raw = (settings.report_hotel_area_keywords or "").strip()
+    if not raw:
+        return offers
+    kws = [k.strip() for k in raw.split(",") if k.strip()]
+    if not kws:
+        return offers
+    out: list[Offer] = []
+    for o in offers:
+        blob = f"{o.hotel_name} {o.destination_city_or_region}".lower()
+        if any(k.lower() in blob for k in kws):
+            out.append(o)
+    return out
 
 
 def _filter_report_offers(offers, settings: Settings):

@@ -151,6 +151,7 @@ def render_html(
     flight_fallback: FlightFallbackContext | None = None,
     offers_beyond_horizon: list[Offer] | None = None,
     horizon_months: int = 6,
+    metasearch_footer_html: str = "",
 ) -> None:
     sections = []
     cheapest_nominal = sorted(offers, key=lambda x: x.price_per_person_pln)[:10]
@@ -201,6 +202,10 @@ def render_html(
     th {{ background: #f3f3f3; text-align: left; }}
     h2 {{ margin-top: 28px; }}
     .cell-nowrap {{ white-space: nowrap; min-width: 9.5em; }}
+    table.matrix th {{ background: #e8f4fc; }}
+    table.matrix td {{ vertical-align: top; }}
+    .meta-links {{ font-size: 0.92em; line-height: 1.45; }}
+    section#vacation-metasearch-bundle {{ margin-top: 8px; }}
   </style>
 </head>
 <body>
@@ -212,6 +217,7 @@ def render_html(
   {alert_html}
   {highlight_html}
   {''.join(sections)}
+  {metasearch_footer_html}
 </body>
 </html>
 """

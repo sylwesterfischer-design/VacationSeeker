@@ -33,4 +33,13 @@ class Settings:
     origin_airport_iata: str = os.getenv("VACATION_ORIGIN_AIRPORT", "WAW").strip().upper() or "WAW"
     # Główne tabele raportu: tylko wylot w ciągu N miesięcy (reszta — sekcja „dalsze terminy”)
     report_horizon_months: int = max(1, min(24, int(os.getenv("VACATION_REPORT_HORIZON_MONTHS", "6"))))
+    # Opcjonalny filtr ofert z feedów: podciągi w nazwie hotelu lub regionie (np. Argassi,Alikanas,Alykes)
+    report_hotel_area_keywords: str = os.getenv("VACATION_REPORT_HOTEL_AREAS", "")
+    # Na końcu HTML: macierz linków lotów + hotele (metawyszukiwareki — bez API cenowego)
+    append_metasearch_footer: bool = os.getenv("VACATION_APPEND_METASEARCH", "").lower() in {"1", "true", "yes"}
+    flight_matrix_departures: str | None = (os.getenv("VACATION_FLIGHT_MATRIX_DEPARTURES") or "").strip() or None
+    flight_matrix_returns: str | None = (os.getenv("VACATION_FLIGHT_MATRIX_RETURNS") or "").strip() or None
+    hotel_stay_checkin: str | None = (os.getenv("VACATION_HOTEL_STAY_CHECKIN") or "").strip() or None
+    hotel_stay_checkout: str | None = (os.getenv("VACATION_HOTEL_STAY_CHECKOUT") or "").strip() or None
+    hotel_metasearch_towns: str | None = (os.getenv("VACATION_HOTEL_TOWNS") or "").strip() or None
 

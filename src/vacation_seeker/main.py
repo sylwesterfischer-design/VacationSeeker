@@ -56,6 +56,12 @@ def main() -> None:
     parser.add_argument("--destination", default=None, help="Nazwa kraju/miasta do watcha")
     parser.add_argument("--adults", type=int, default=2)
     parser.add_argument("--children-ages", default="12,14", help="Wiek dzieci, np. 12,14")
+    parser.add_argument(
+        "--hotel-areas",
+        default=None,
+        help="Opcjonalnie CSV podciągów filtrujących nazwę hotelu / region (np. Argassi,Alikanas,Alykes); "
+        "nadpisuje VACATION_REPORT_HOTEL_AREAS",
+    )
     parser.add_argument("--drop-ratio", type=float, default=0.5, help="Prog spadku vs mediana, np. 0.5 = 50%%")
     parser.add_argument("--max-total-pln", type=float, default=None, help="Maksymalny koszt calkowity rodziny")
     parser.add_argument("--email", default=None, help="Adres email dla alertow")
@@ -102,6 +108,8 @@ def main() -> None:
         settings.report_return_to = args.return_to
     settings.report_adults = max(1, args.adults)
     settings.report_children_ages = args.children_ages
+    if args.hotel_areas:
+        settings.report_hotel_area_keywords = args.hotel_areas
     if args.command == "run-once":
         run_id = str(uuid.uuid4())
         ctx = RunContext(
