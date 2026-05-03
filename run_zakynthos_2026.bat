@@ -30,6 +30,7 @@ set "LOG_FILE=%LOG_DIR%\run_zakynthos_%TS%.log"
 set "STDOUT_LOG=%LOG_DIR%\run_zakynthos_console_%TS%.log"
 
 echo [VacationSeeker] Zakynthos 2026: raport + metasearch do "%TARGET%\report_Zakynthos.html"
+echo [VacationSeeker] Pelna sciezka HTML: "%~dp0%TARGET%\report_Zakynthos.html"
 echo [VacationSeeker] Log: "%LOG_FILE%" | stdout: "%STDOUT_LOG%"
 
 py -3 -m src.vacation_seeker.main run-once ^
@@ -51,5 +52,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo [VacationSeeker] OK: "%TARGET%\report_Zakynthos.html"
+echo [VacationSeeker] OK pelna sciezka: "%~dp0%TARGET%\report_Zakynthos.html"
 pause
 endlocal
