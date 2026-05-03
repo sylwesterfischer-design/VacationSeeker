@@ -165,7 +165,7 @@ def run_once(settings: Settings, ctx: RunContext | None = None) -> tuple[RankedR
             children_ages=parse_children_ages(settings.report_children_ages),
         )
 
-    metasearch_footer_html = _build_metasearch_footer_html(settings)
+    metasearch_footer_html = _build_metasearch_footer_html(settings, ctx)
 
     if not (ctx and ctx.dry_run):
         render_html(
@@ -238,7 +238,7 @@ def _metasearch_flight_matrix_ready(settings: Settings) -> bool:
     return bool(deps and rets)
 
 
-def _build_metasearch_footer_html(settings: Settings) -> str:
+def _build_metasearch_footer_html(settings: Settings, ctx: RunContext | None = None) -> str:
     if not settings.append_metasearch_footer:
         return ""
     deps = parse_csv_tokens(settings.flight_matrix_departures)
@@ -255,6 +255,7 @@ def _build_metasearch_footer_html(settings: Settings) -> str:
             "<code>VACATION_HOTEL_STAY_CHECKIN</code>, <code>VACATION_HOTEL_STAY_CHECKOUT</code>, "
             "<code>VACATION_HOTEL_TOWNS</code> (patrz <code>run_zakynthos_2026.bat</code>).</p></section>"
         )
+    dry = bool(ctx and ctx.dry_run)
     return render_metasearch_footer_html(
         origin_iata=settings.origin_airport_iata,
         destination_label=dest,
@@ -265,6 +266,12 @@ def _build_metasearch_footer_html(settings: Settings) -> str:
         hotel_towns=towns,
         adults=max(1, settings.report_adults),
         children_ages=parse_children_ages(settings.report_children_ages),
+        amadeus_client_id=settings.amadeus_client_id,
+        amadeus_client_secret=settings.amadeus_client_secret,
+        amadeus_hostname=settings.amadeus_hostname,
+        amadeus_currency=settings.amadeus_currency,
+        amadeus_flight_top3_enabled=settings.amadeus_flight_top3_enabled,
+        skip_amadeus_api=dry,
     )
 
 

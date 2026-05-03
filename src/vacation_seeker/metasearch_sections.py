@@ -11,6 +11,7 @@ from __future__ import annotations
 from html import escape
 from urllib.parse import urlencode
 
+from .amadeus_flight_hints import build_flight_top3_block
 from .flight_fallback_links import (
     FlightFallbackContext,
     guess_destination_iata,
@@ -202,6 +203,12 @@ def render_metasearch_footer_html(
     hotel_towns: list[str],
     adults: int,
     children_ages: tuple[int, ...],
+    amadeus_client_id: str | None = None,
+    amadeus_client_secret: str | None = None,
+    amadeus_hostname: str = "test.api.amadeus.com",
+    amadeus_currency: str = "PLN",
+    amadeus_flight_top3_enabled: bool = True,
+    skip_amadeus_api: bool = False,
 ) -> str:
     """Jedna sekcja sklejona na koniec raportu HTML (loty + hotele)."""
     flights = render_flight_date_matrix_html(
@@ -211,6 +218,22 @@ def render_metasearch_footer_html(
         return_dates=return_dates,
         adults=adults,
         children_ages=children_ages,
+    )
+    dest_iata = guess_destination_iata(destination_label) or "ZTH"
+    top3 = build_flight_top3_block(
+        host=amadeus_hostname,
+        client_id=amadeus_client_id,
+        client_secret=amadeus_client_secret,
+        origin_iata=origin_iata,
+        destination_label=destination_label,
+        dest_iata=dest_iata,
+        departure_dates=departure_dates,
+        return_dates=return_dates,
+        adults=adults,
+        children_ages=children_ages,
+        currency=amadeus_currency,
+        skip_api=skip_amadeus_api,
+        amadeus_top3_enabled=amadeus_flight_top3_enabled,
     )
     hotels = render_hotel_metasearch_html(
         destination_label=destination_label,
@@ -224,6 +247,6 @@ def render_metasearch_footer_html(
         "<section id=\"vacation-metasearch-bundle\">"
         "<hr style=\"margin:32px 0;\"/>"
         "<h1 style=\"font-size:1.4em;\">Porównanie zewnętrzne (loty + hotele)</h1>"
-        f"{flights}{hotels}"
+        f"{flights}{top3}{hotels}"
         "</section>"
     )

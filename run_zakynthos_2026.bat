@@ -28,6 +28,12 @@ set "VACATION_HOTEL_STAY_CHECKOUT=2026-07-05"
 set "VACATION_HOTEL_TOWNS=Argassi,Alikanas,Alykes"
 set "VACATION_REPORT_HOTEL_AREAS=Argassi,Alikanas,Alykes"
 
+rem Opcjonalnie TOP 3 lotow po cenie pod macierza linkow: https://developers.amadeus.com/register
+rem set "VACATION_AMADEUS_CLIENT_ID=..."
+rem set "VACATION_AMADEUS_CLIENT_SECRET=..."
+rem set "VACATION_AMADEUS_HOST=test.api.amadeus.com"
+rem set "VACATION_AMADEUS_CURRENCY=PLN"
+
 set "LOG_DIR=logs"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 set "TS="

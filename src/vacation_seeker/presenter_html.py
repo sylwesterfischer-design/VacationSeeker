@@ -265,6 +265,7 @@ def render_html(
     table.matrix td {{ vertical-align: top; }}
     .meta-links {{ font-size: 0.92em; line-height: 1.45; }}
     section#vacation-metasearch-bundle {{ margin-top: 8px; }}
+    .meta-warn {{ color: #a33; font-weight: 600; }}
   </style>
 </head>
 <body>

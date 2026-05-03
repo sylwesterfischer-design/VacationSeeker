@@ -42,4 +42,10 @@ class Settings:
     hotel_stay_checkin: str | None = (os.getenv("VACATION_HOTEL_STAY_CHECKIN") or "").strip() or None
     hotel_stay_checkout: str | None = (os.getenv("VACATION_HOTEL_STAY_CHECKOUT") or "").strip() or None
     hotel_metasearch_towns: str | None = (os.getenv("VACATION_HOTEL_TOWNS") or "").strip() or None
+    # Opcjonalnie: TOP 3 lotów wg ceny pod macierzą linków (Amadeus Self-Service — darmowa rejestracja)
+    amadeus_client_id: str | None = (os.getenv("VACATION_AMADEUS_CLIENT_ID") or "").strip() or None
+    amadeus_client_secret: str | None = (os.getenv("VACATION_AMADEUS_CLIENT_SECRET") or "").strip() or None
+    amadeus_hostname: str = (os.getenv("VACATION_AMADEUS_HOST") or "test.api.amadeus.com").strip() or "test.api.amadeus.com"
+    amadeus_currency: str = (os.getenv("VACATION_AMADEUS_CURRENCY") or "PLN").strip().upper() or "PLN"
+    amadeus_flight_top3_enabled: bool = os.getenv("VACATION_AMADEUS_FLIGHT_TOP3", "true").lower() in {"1", "true", "yes"}
 
