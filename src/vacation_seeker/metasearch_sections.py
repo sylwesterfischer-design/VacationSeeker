@@ -103,7 +103,7 @@ def render_flight_date_matrix_html(
     note = (
         "<p><em>Kayak, Skyscanner i Google nie udostępniają tutaj API z cenami — każda komórka to osobne "
         f"wyszukiwanie online (lotnisko docelowe w linkach: <strong>{escape(dest_iata)}</strong>). "
-        "Kayak: segment economy + licznik dzieci 2–17 (np. 11 i 13 = children-2, childages=11,13) + query adults/children; "
+        "Kayak: economy + ścieżka „Nadults/children-wiek-wiek…” (np. 2adults/children-11-13) + query; "
         "Google Flights często traktuje 12+ jako dorosłych — doprecyzuj skład w UI po wejściu w link.</em></p>"
     )
     return (

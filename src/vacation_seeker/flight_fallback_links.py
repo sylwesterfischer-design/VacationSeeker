@@ -130,19 +130,18 @@ def _kayak_seated_minors(children_ages: tuple[int, ...]) -> list[int]:
 
 
 def _kayak_pax_path_segment(adults: int, children_ages: tuple[int, ...]) -> str:
-    """Segment ścieżki po klasie kabiny — zawsze jawna liczba dorosłych (np. 1adults), nigdy pusty."""
+    """
+    Segment ścieżki po klasie kabiny (Kayak / kayak.pl).
+
+    Kayak SSR **nie** mapuje już poprawnie składu z jednego bloku typu ``2adults-children-2``
+    (zostaje ``travelers.adults == 1``). Działa format ze **slashem** i wiekami w jednym segmencie:
+    ``2adults/children-11-13`` → dorośli + dzieci z konkretnymi latami w stanie początkowym strony.
+    """
     a = max(1, adults)
-    parts: list[str] = [f"{a}adults"]
-    infants = _kayak_lap_infants(children_ages)
-    seated = _kayak_seated_minors(children_ages)
-    if infants:
-        parts.append(f"infants-{len(infants)}")
-    if seated:
-        parts.append(f"children-{len(seated)}")
-    # Wiek 0–17 zapisany tylko jako „dziecko” bez rozbicia 2+ (np. wyjątkowy przypadek danych)
-    if not seated and not infants and children_ages:
-        parts.append(f"children-{len(children_ages)}")
-    return "-".join(parts)
+    if not children_ages:
+        return f"{a}adults"
+    ages = "-".join(str(x) for x in children_ages)
+    return f"{a}adults/children-{ages}"
 
 
 def kayak_roundtrip_url(
@@ -158,9 +157,9 @@ def kayak_roundtrip_url(
     """
     Kayak (kayak.pl / kayak.com wg VACATION_KAYAK_FLIGHTS_HOST) — lot w obie strony.
 
-    Kayak wymaga w ścieżce segmentu **klasy** (np. ``economy``) przed liczbą pasażerów — inaczej
-    często resetuje wyszukiwanie do domyślnego „1 dorosły”. Wiek 11 i 13 wchodzi do **jednego**
-    licznika ``children-2`` + ``childages=11,13`` (zgodnie z UI „Dzieci 0–17”), bez segmentu ``youths``.
+    Ścieżka pasażerów: ``{cabin}/{N}adults`` albo ``{cabin}/{N}adults/children-{wiek}-{wiek}-…``
+    (ukośnik między dorosłymi a dziećmi oraz **konkretne wieki** w jednym segmencie ``children-``).
+    Sam zapis ``…/2adults-children-2`` bez slasha bywa ignorowany przez SSR (UI: „1 dorosły”).
     """
     o, d = origin.upper(), dest.upper()
     host = _kayak_flights_host()
@@ -178,10 +177,8 @@ def kayak_roundtrip_url(
         "children": str(len(seated)),
         "infants": str(len(infants)),
     }
-    if seated:
-        q["childages"] = ",".join(str(x) for x in sorted(seated))
-    elif children_ages:
-        q["childages"] = ",".join(str(x) for x in sorted(children_ages))
+    if children_ages:
+        q["childages"] = ",".join(str(x) for x in children_ages)
     return f"{path}?{urlencode(q)}"
 
 
@@ -324,9 +321,9 @@ def fallback_section_html(ctx: FlightFallbackContext) -> str:
     )
     note = (
         "<p><em>Uwaga: ceny na Kayak / Google / Skyscanner są dynamiczne — to linki do gotowego wyszukiwania, "
-        "nie gwarancja ceny z raportu VacationSeeker. Linki Kayak: segment economy + jeden licznik „dzieci” (wiek 2–17, "
-        "np. 11 i 13 jako children-2). Google Flights liczy „dzieci” zwykle w wieku 2–11 lat; "
-        "osoby 12+ mogą pojawić się jako dorośli — ceny i tak są za całą grupę z GUI.</em></p>"
+        "nie gwarancja ceny z raportu VacationSeeker. Linki Kayak: ścieżka "
+        "„economy / N dorosłych / children-wiek-wiek…” (np. …/2adults/children-11-13). "
+        "Google Flights liczy „dzieci” zwykle w wieku 2–11 lat; osoby 12+ mogą pojawić się jako dorośli.</em></p>"
     )
     pax = _esc(_passenger_summary_pl(ctx))
     return (
