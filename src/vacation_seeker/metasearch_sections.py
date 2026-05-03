@@ -34,8 +34,12 @@ def _booking_hotel_search_url(
     *,
     adults: int,
     children_ages: tuple[int, ...],
+    mealplan: int | None = None,
 ) -> str:
-    """Booking.com — wyniki wyszukiwania z datami i składem rodziny."""
+    """
+    Booking.com — wyniki wyszukiwania z datami i składem rodziny.
+    mealplan (orientacyjnie): 1 = śniadanie, 2 = pół pensjonat / HB — Booking może zmieniać obsługę parametru.
+    """
     params: list[tuple[str, str]] = [
         ("ss", place_query),
         ("checkin", checkin),
@@ -45,14 +49,18 @@ def _booking_hotel_search_url(
         ("no_rooms", "1"),
         ("order", "price"),
     ]
+    if mealplan is not None:
+        params.append(("mealplan", str(mealplan)))
     for age in children_ages:
         params.append(("age", str(age)))
     return "https://www.booking.com/searchresults.html?" + urlencode(params)
 
 
-def _google_hotels_url(place_query: str, checkin: str, checkout: str) -> str:
+def _google_hotels_url(place_query: str, checkin: str, checkout: str, *, meal_words: str | None = None) -> str:
     """Google Travel / hotele — zapytanie tekstowe + daty w parametrze q (stabilniejsze niż entity_id)."""
     q = f"hotels {place_query} check in {checkin} check out {checkout}"
+    if meal_words:
+        q = f"{q} {meal_words}"
     return "https://www.google.com/travel/hotels?q=" + quote(q) + "&hl=pl&curr=PLN"
 
 
@@ -149,22 +157,42 @@ def render_hotel_metasearch_html(
     adults: int,
     children_ages: tuple[int, ...],
 ) -> str:
-    """Linki Booking / Google / Kayak hotele dla listy miejscowości (nocleg stały check-in / check-out)."""
+    """Linki Booking / Google / Kayak + osobne kolumny BB (śniadanie) i HB (śniadanie + obiadokolacja)."""
     rows: list[str] = []
     for town in towns:
         place = f"{town}, Zakynthos, Greece"
-        b = _booking_hotel_search_url(place, checkin, checkout, adults=adults, children_ages=children_ages)
-        g = _google_hotels_url(f"{town} Zakynthos Greece", checkin, checkout)
+        geo = f"{town} Zakynthos Greece"
+        b_any = _booking_hotel_search_url(place, checkin, checkout, adults=adults, children_ages=children_ages)
+        b_bb = _booking_hotel_search_url(
+            place, checkin, checkout, adults=adults, children_ages=children_ages, mealplan=1
+        )
+        b_hb = _booking_hotel_search_url(
+            place, checkin, checkout, adults=adults, children_ages=children_ages, mealplan=2
+        )
+        g_any = _google_hotels_url(geo, checkin, checkout)
+        g_bb = _google_hotels_url(geo, checkin, checkout, meal_words="breakfast included")
+        g_hb = _google_hotels_url(geo, checkin, checkout, meal_words="half board breakfast dinner")
         k = _kayak_hotels_url(place, checkin, checkout, adults, children_ages)
+        col_any = (
+            f"<a href=\"{escape(b_any, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking</a> · "
+            f"<a href=\"{escape(g_any, quote=True)}\" target=\"_blank\" rel=\"noopener\">Google</a> · "
+            f"<a href=\"{escape(k, quote=True)}\" target=\"_blank\" rel=\"noopener\">Kayak</a>"
+        )
+        col_bb = (
+            f"<a href=\"{escape(b_bb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking (śniadanie)</a> · "
+            f"<a href=\"{escape(g_bb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Google (BB)</a>"
+        )
+        col_hb = (
+            f"<a href=\"{escape(b_hb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking (HB)</a> · "
+            f"<a href=\"{escape(g_hb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Google (HB)</a>"
+        )
         rows.append(
             "<tr>"
             f"<td><strong>{escape(town)}</strong></td>"
             f"<td class=\"cell-nowrap\">{escape(checkin)} → {escape(checkout)}</td>"
-            "<td>"
-            f"<a href=\"{escape(b, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking</a> · "
-            f"<a href=\"{escape(g, quote=True)}\" target=\"_blank\" rel=\"noopener\">Google hotele</a> · "
-            f"<a href=\"{escape(k, quote=True)}\" target=\"_blank\" rel=\"noopener\">Kayak hotele</a>"
-            "</td>"
+            f"<td><div class=\"meta-links\">{col_any}</div></td>"
+            f"<td><div class=\"meta-links\">{col_bb}</div></td>"
+            f"<td><div class=\"meta-links\">{col_hb}</div></td>"
             "</tr>"
         )
 
@@ -173,11 +201,16 @@ def render_hotel_metasearch_html(
         pax += f", dzieci: {', '.join(str(a) for a in children_ages)} lat"
 
     return (
-        "<h2>Hotele — linki metawyszukiwarek (Booking / Google / Kayak)</h2>"
+        "<h2>Hotele — metawyszukiwareki (dowolne wyżywienie / śniadanie BB / pół pensjonat HB)</h2>"
         f"<p>Destynacja: <strong>{escape(destination_label)}</strong> · Nocleg: "
         f"<strong>{escape(checkin)}</strong> – <strong>{escape(checkout)}</strong> · {escape(pax)}</p>"
-        "<p><em>Ceny i dostępność tylko na stronach docelowych; brak API VacationSeeker do cen hoteli.</em></p>"
-        "<table><thead><tr><th>Miejscowość</th><th>Termin pobytu</th><th>Linki</th></tr></thead><tbody>"
+        "<p><em>Booking: parametr <code>mealplan</code> (1 = śniadanie, 2 = HB) bywa aktualizowany przez serwis — "
+        "jeśli filtr nie zadziała, użyj kolumny „dowolne” i wybierz wyżywienie w filtrach strony. "
+        "Ceny tylko u operatora; VacationSeeker nie pobiera API cen hoteli.</em></p>"
+        "<table><thead><tr>"
+        "<th>Miejscowość</th><th>Termin pobytu</th>"
+        "<th>Dowolne wyżywienie</th><th>Śniadanie w cenie (BB)</th><th>Śniadanie + obiadokolacja (HB)</th>"
+        "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table>"
     )

@@ -311,14 +311,79 @@ def _extract_destination(title: str, desc: str) -> str:
     return "unknown"
 
 
+def _norm_board_scan(text: str) -> str:
+    """Małe litery + odpolszczenie znaków — do dopasowań wyżywienia w treści ofert."""
+    t = text.lower()
+    for a, b in (
+        ("ą", "a"),
+        ("ć", "c"),
+        ("ę", "e"),
+        ("ł", "l"),
+        ("ń", "n"),
+        ("ó", "o"),
+        ("ś", "s"),
+        ("ź", "z"),
+        ("ż", "z"),
+    ):
+        t = t.replace(a, b)
+    return t
+
+
 def _extract_board_type(text: str) -> str:
+    """
+    RO / BB / HB / AI z opisu (PL/EN). HB przed BB — żeby „śniadanie i obiadokolacja” nie wpadało jako samo BB.
+    """
+    if not text:
+        return "RO"
     up = text.upper()
-    if "ALL INCLUSIVE" in up or " AI" in up:
+    n = _norm_board_scan(text)
+
+    if (
+        "ALL INCLUSIVE" in up
+        or " AI" in up
+        or re.search(r"\bAI\b", up)
+        or "all inclusive" in n
+    ):
         return "AI"
-    if "HB" in up:
+
+    hb_markers = (
+        "half board",
+        "halfboard",
+        "pol pensjonat",
+        "demi-pension",
+        "demi pension",
+        "obiadokolacja",
+        "obiadokolacji",
+        "sniadanie i obiadokolacja",
+        "sniadanie i kolacja",
+        "snidanie i kolacja",
+        "2 posilki",
+        "dwa posilki",
+        "dwie posilki",
+        "posilki: sniadanie i obiadokolacja",
+    )
+    if re.search(r"\bHB\b", up) or any(m in n for m in hb_markers):
         return "HB"
+
+    bb_markers = (
+        "bed & breakfast",
+        "bed and breakfast",
+        "b&b",
+        "nocleg ze sniadaniem",
+        "samo sniadanie",
+        "tylko sniadanie",
+        "sniadanie wliczone",
+        "sniadanie w cenie",
+        "wyzywienie: sniadanie",
+        "w package sniadanie",
+    )
+    if re.search(r"\bBB\b", up) or any(m in n for m in bb_markers):
+        return "BB"
+
     if "BB" in up:
         return "BB"
+    if "HB" in up:
+        return "HB"
     return "RO"
 
 

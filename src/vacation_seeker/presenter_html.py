@@ -49,6 +49,46 @@ def _offer_row(o: Offer) -> str:
     )
 
 
+def _offer_row_meal_focus(o: Offer) -> str:
+    """Wiersz z jawna kolumna wyzywienia (sekcje BB/HB)."""
+    reason = f"Score realny {o.score}, nominalny {o.nominal_score}, {o.trip_nights} nocy"
+    return (
+        "<tr>"
+        f"<td>{escape(o.board_type)}</td>"
+        f"<td>{escape(o.destination_city_or_region)}</td>"
+        f"<td class=\"cell-nowrap\">{escape(o.departure_date)} – {escape(o.return_date)}</td>"
+        f"<td>{escape(o.departure_airport)}</td>"
+        f"<td>{escape(o.hotel_name)} ({o.hotel_stars or 0}*)</td>"
+        f"<td>{o.price_per_person_pln:.0f} PLN</td>"
+        f"<td>{o.total_trip_cost_pln:.0f} PLN</td>"
+        f"<td>{o.price_total_pln:.0f} PLN</td>"
+        f"<td><a href='{escape(o.source_url)}' target='_blank'>{escape(o.source_name)}</a></td>"
+        f"<td>{escape(reason)}</td>"
+        "</tr>"
+    )
+
+
+def _meal_board_feed_section(title: str, offers_bb_or_hb: list[Offer], empty_hint: str) -> str:
+    """Tabela ofert z feedow ograniczona do BB albo HB, posortowana wg kosztu realnego."""
+    if not offers_bb_or_hb:
+        return (
+            f"<h2>{escape(title)}</h2>"
+            f"<p>{escape(empty_hint)}</p>"
+        )
+    rows = "".join(_offer_row_meal_focus(o) for o in offers_bb_or_hb)
+    return (
+        f"<h2>{escape(title)}</h2>"
+        f"<p>Liczba ofert: <strong>{len(offers_bb_or_hb)}</strong> (wg pola wyżywienia w danych źródła). "
+        "Sortowanie: od najniższego kosztu realnego/os.</p>"
+        "<table>"
+        "<thead><tr>"
+        "<th>Wyżywienie</th><th>Kierunek</th><th class=\"cell-nowrap\">Termin</th><th>Wylot</th><th>Hotel</th>"
+        "<th>Cena/os nominalna</th><th>Koszt realny/os</th><th>Total</th><th>Źródło</th><th>Uwagi</th>"
+        "</tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+    )
+
+
 def _window_table(title: str, offers: list[Offer]) -> str:
     if not offers:
         return f"<h4>{escape(title)}</h4><p>Brak ofert</p>"
@@ -160,6 +200,25 @@ def render_html(
     sections.append(f"<h2>Najtaniej nominalnie vs najtaniej realnie (rodzina: {family_size} os.)</h2>")
     sections.append(_top_table("TOP 10 nominalnie", cheapest_nominal, real=False))
     sections.append(_top_table("TOP 10 realnie", cheapest_real, real=True))
+
+    bb_only = sorted([o for o in offers if o.board_type == "BB"], key=lambda x: x.total_trip_cost_pln)
+    hb_only = sorted([o for o in offers if o.board_type == "HB"], key=lambda x: x.total_trip_cost_pln)
+    sections.append(
+        _meal_board_feed_section(
+            "Hotele (feed): śniadanie w cenie — BB (Bed & Breakfast)",
+            bb_only,
+            "Brak ofert z wyżywieniem BB w bieżącym zestawieniu (po filtrach raportu). "
+            "Sprawdź sekcję metawyszukiwarek niżej — linki Booking / Google z filtrem śniadania.",
+        )
+    )
+    sections.append(
+        _meal_board_feed_section(
+            "Hotele (feed): śniadanie i obiadokolacja w cenie — HB (Half Board)",
+            hb_only,
+            "Brak ofert z wyżywieniem HB w bieżącym zestawieniu. "
+            "Sprawdź sekcję metawyszukiwarek niżej — linki Booking / Google z filtrem półpensjonatu.",
+        )
+    )
 
     sections.append("<h2>TOP oferty dla 1 osoby</h2>")
     for window, offers in result.solo.items():
