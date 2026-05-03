@@ -208,7 +208,7 @@ def render_html(
             "Hotele (feed): śniadanie w cenie — BB (Bed & Breakfast)",
             bb_only,
             "Brak ofert z wyżywieniem BB w bieżącym zestawieniu (po filtrach raportu). "
-            "Sprawdź sekcję metawyszukiwarek niżej — linki Booking / Google z filtrem śniadania.",
+            "Sprawdź sekcję metawyszukiwarek niżej — linki Booking (śniadanie / mealplan).",
         )
     )
     sections.append(
@@ -216,7 +216,7 @@ def render_html(
             "Hotele (feed): śniadanie i obiadokolacja w cenie — HB (Half Board)",
             hb_only,
             "Brak ofert z wyżywieniem HB w bieżącym zestawieniu. "
-            "Sprawdź sekcję metawyszukiwarek niżej — linki Booking / Google z filtrem półpensjonatu.",
+            "Sprawdź sekcję metawyszukiwarek niżej — linki Booking (HB / mealplan).",
         )
     )
 

@@ -1,15 +1,15 @@
 """
 Sekcje HTML z linkami do metawyszukiwarek (bez API — ceny tylko na stronach docelowych).
 
-Kayak, Skyscanner i Google Flights / Google Travel nie udostępniają stabilnego publicznego API
-cenowego dla zwykłych skryptów; VacationSeeker buduje gotowe URL-e wyszukiwania (jak dotąd
-w flight_fallback_links), tutaj rozszerzone o macierz dat i hotele (Booking + Google).
+Kayak, Skyscanner i Google Flights nie udostępniają stabilnego publicznego API cenowego;
+VacationSeeker buduje URL-e wyszukiwania lotów (jak w flight_fallback_links) oraz linki
+Booking dla hoteli — Google Hotels i Kayak Noclegi nie mają wiarygodnego URL z 2 dorosłymi + dziećmi.
 """
 
 from __future__ import annotations
 
 from html import escape
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 from .flight_fallback_links import (
     FlightFallbackContext,
@@ -54,29 +54,6 @@ def _booking_hotel_search_url(
     for age in children_ages:
         params.append(("age", str(age)))
     return "https://www.booking.com/searchresults.html?" + urlencode(params)
-
-
-def _google_hotels_url(place_query: str, checkin: str, checkout: str, *, meal_words: str | None = None) -> str:
-    """Google Travel / hotele — zapytanie tekstowe + daty w parametrze q (stabilniejsze niż entity_id)."""
-    q = f"hotels {place_query} check in {checkin} check out {checkout}"
-    if meal_words:
-        q = f"{q} {meal_words}"
-    return "https://www.google.com/travel/hotels?q=" + quote(q) + "&hl=pl&curr=PLN"
-
-
-def _kayak_hotels_url(place_query: str, checkin: str, checkout: str, adults: int, children_ages: tuple[int, ...]) -> str:
-    """Kayak hotele — slug z nazwy miejsca (przybliżenie; użytkownik może doprecyzować na stronie)."""
-    slug = quote(place_query.replace(" ", "-"), safe="-")
-    base = f"https://www.kayak.pl/hotels/{slug}/{checkin}/{checkout}"
-    a = max(1, adults)
-    n = len(children_ages)
-    if n == 0:
-        path = f"{base}/{a}adults" if a != 1 else base
-    else:
-        path = f"{base}/{a}adults-children-{n}"
-    if children_ages:
-        return f"{path}?children={','.join(str(x) for x in children_ages)}"
-    return path
 
 
 def render_flight_date_matrix_html(
@@ -157,11 +134,14 @@ def render_hotel_metasearch_html(
     adults: int,
     children_ages: tuple[int, ...],
 ) -> str:
-    """Linki Booking / Google / Kayak + osobne kolumny BB (śniadanie) i HB (śniadanie + obiadokolacja)."""
+    """
+    Tylko Booking.com — jedyny z tych serwisów, dla którego URL sensownie przenosi skład rodziny
+    (dorosłe + wieki dzieci). Google Travel Hotels i Kayak Noclegi nie mają stabilnego publicznego
+    URL wymuszającego 2+2; linki udawały poprawną konfigurację — usunięte (zob. notka poniżej).
+    """
     rows: list[str] = []
     for town in towns:
         place = f"{town}, Zakynthos, Greece"
-        geo = f"{town} Zakynthos Greece"
         b_any = _booking_hotel_search_url(place, checkin, checkout, adults=adults, children_ages=children_ages)
         b_bb = _booking_hotel_search_url(
             place, checkin, checkout, adults=adults, children_ages=children_ages, mealplan=1
@@ -169,23 +149,9 @@ def render_hotel_metasearch_html(
         b_hb = _booking_hotel_search_url(
             place, checkin, checkout, adults=adults, children_ages=children_ages, mealplan=2
         )
-        g_any = _google_hotels_url(geo, checkin, checkout)
-        g_bb = _google_hotels_url(geo, checkin, checkout, meal_words="breakfast included")
-        g_hb = _google_hotels_url(geo, checkin, checkout, meal_words="half board breakfast dinner")
-        k = _kayak_hotels_url(place, checkin, checkout, adults, children_ages)
-        col_any = (
-            f"<a href=\"{escape(b_any, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking</a> · "
-            f"<a href=\"{escape(g_any, quote=True)}\" target=\"_blank\" rel=\"noopener\">Google</a> · "
-            f"<a href=\"{escape(k, quote=True)}\" target=\"_blank\" rel=\"noopener\">Kayak</a>"
-        )
-        col_bb = (
-            f"<a href=\"{escape(b_bb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking (śniadanie)</a> · "
-            f"<a href=\"{escape(g_bb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Google (BB)</a>"
-        )
-        col_hb = (
-            f"<a href=\"{escape(b_hb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking (HB)</a> · "
-            f"<a href=\"{escape(g_hb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Google (HB)</a>"
-        )
+        col_any = f"<a href=\"{escape(b_any, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking</a>"
+        col_bb = f"<a href=\"{escape(b_bb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking (śniadanie)</a>"
+        col_hb = f"<a href=\"{escape(b_hb, quote=True)}\" target=\"_blank\" rel=\"noopener\">Booking (HB)</a>"
         rows.append(
             "<tr>"
             f"<td><strong>{escape(town)}</strong></td>"
@@ -200,16 +166,25 @@ def render_hotel_metasearch_html(
     if children_ages:
         pax += f", dzieci: {', '.join(str(a) for a in children_ages)} lat"
 
+    google_kayak_note = (
+        "<p><strong>Google Travel (Hotele) i Kayak (Noclegi):</strong> nie ma publicznego, "
+        "stabilnego formatu URL, który wymuszałby wyszukiwanie dla <em>konkretnie</em> Twojej rodziny "
+        "(np. 2 dorosłych + 2 dzieci z wiekami). Parametr <code>q=</code> w Google oraz ścieżki typu "
+        "<code>…/2adults-children-2</code> na Kayak nie są dokumentowane jako nośnik składu gości — "
+        "w praktyce strona często zostaje przy domyślnych „2 gościach”. "
+        "<strong>Nie da się tego wiarygodnie zakodować w VacationSeeker</strong> bez oszukiwania użytkownika. "
+        "Chcesz porównać z Google/Kayak: otwórz stronę główną wyszukiwarki hoteli i ustaw pokoje oraz dzieci ręcznie.</p>"
+    )
     return (
-        "<h2>Hotele — metawyszukiwareki (dowolne wyżywienie / śniadanie BB / pół pensjonat HB)</h2>"
+        "<h2>Hotele — Booking.com (skład rodziny z raportu + opcjonalnie wyżywienie)</h2>"
         f"<p>Destynacja: <strong>{escape(destination_label)}</strong> · Nocleg: "
         f"<strong>{escape(checkin)}</strong> – <strong>{escape(checkout)}</strong> · {escape(pax)}</p>"
-        "<p><em>Booking: parametr <code>mealplan</code> (1 = śniadanie, 2 = HB) bywa aktualizowany przez serwis — "
-        "jeśli filtr nie zadziała, użyj kolumny „dowolne” i wybierz wyżywienie w filtrach strony. "
-        "Ceny tylko u operatora; VacationSeeker nie pobiera API cen hoteli.</em></p>"
+        + google_kayak_note
+        + "<p><em>Booking: parametr <code>mealplan</code> (1 = śniadanie, 2 = HB) może być ignorowany — "
+        "wtedy filtr wyżywienia na stronie. Ceny tylko u operatora.</em></p>"
         "<table><thead><tr>"
         "<th>Miejscowość</th><th>Termin pobytu</th>"
-        "<th>Dowolne wyżywienie</th><th>Śniadanie w cenie (BB)</th><th>Śniadanie + obiadokolacja (HB)</th>"
+        "<th>Booking — dowolne</th><th>Booking — śniadanie (BB)</th><th>Booking — HB</th>"
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table>"
